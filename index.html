@@ -1,0 +1,236 @@
+﻿<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hệ thống tài khoản</title>
+
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: Segoe UI;
+      }
+      body {
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: linear-gradient(135deg, #ff416c, #ff4b2b);
+      }
+      .container {
+        width: 900px;
+        max-width: 95%;
+        height: 550px;
+        background: #fff;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
+        position: relative;
+      }
+      .form-container {
+        position: absolute;
+        top: 0;
+        height: 100%;
+        width: 50%;
+        padding: 50px;
+        transition: 0.6s;
+      }
+      .sign-up {
+        left: 0;
+        z-index: 2;
+      }
+      .sign-in {
+        left: 0;
+        opacity: 0;
+        z-index: 1;
+      }
+      .container.active .sign-in {
+        transform: translateX(100%);
+        opacity: 1;
+        z-index: 5;
+      }
+      .container.active .sign-up {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      .overlay {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        width: 50%;
+        height: 100%;
+        background: linear-gradient(135deg, #ff4b2b, #ff416c);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        text-align: center;
+        padding: 40px;
+        transition: 0.6s;
+      }
+      .container.active .overlay {
+        transform: translateX(-100%);
+      }
+      input {
+        width: 100%;
+        padding: 12px;
+        margin: 10px 0;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+      }
+      button {
+        padding: 12px 40px;
+        border-radius: 25px;
+        border: none;
+        background: #ff416c;
+        color: #fff;
+        font-weight: bold;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #ff2a5a;
+      }
+      canvas {
+        margin-top: 10px;
+        border-radius: 8px;
+        background: #eee;
+      }
+      @media (max-width: 768px) {
+        .container {
+          height: auto;
+        }
+        .form-container {
+          position: relative;
+          width: 100%;
+          transform: none !important;
+          opacity: 1 !important;
+        }
+        .overlay {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container" id="container">
+      <div class="form-container sign-up">
+        <h2>Đăng ký</h2>
+        <input type="text" id="regName" placeholder="Họ tên" required />
+        <input type="email" id="regEmail" placeholder="Email" required />
+        <input type="password" id="regPass" placeholder="Mật khẩu" required />
+
+        <canvas id="captchaCanvas" width="200" height="50"></canvas>
+        <input
+          type="text"
+          id="regCaptcha"
+          placeholder="Nhập mã phía trên"
+          required
+        />
+
+        <button onclick="dangKy()">Tạo tài khoản</button>
+      </div>
+
+      <div class="form-container sign-in">
+        <h2>Đăng nhập</h2>
+        <input type="email" id="loginEmail" placeholder="Email" required />
+        <input type="password" id="loginPass" placeholder="Mật khẩu" required />
+        <button onclick="dangNhap()">Đăng nhập</button>
+      </div>
+
+      <div class="overlay">
+        <h2>Chào mừng!</h2>
+        <p>Nhấn nút bên dưới để chuyển đổi</p>
+        <button onclick="toggle()">Chuyển đổi</button>
+      </div>
+    </div>
+
+    <script>
+      let container = document.getElementById("container");
+      function toggle() {
+        container.classList.toggle("active");
+      }
+
+      /* CAPTCHA */
+      let captchaValue = "";
+      function taoCaptcha() {
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        captchaValue = "";
+        for (let i = 0; i < 6; i++) {
+          captchaValue += chars.charAt(
+            Math.floor(Math.random() * chars.length),
+          );
+        }
+        let canvas = document.getElementById("captchaCanvas");
+        let ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, 200, 50);
+        ctx.font = "30px Arial";
+        ctx.fillStyle = "#000";
+        ctx.fillText(captchaValue, 30, 35);
+        for (let i = 0; i < 5; i++) {
+          ctx.strokeStyle = "rgba(0,0,0,0.3)";
+          ctx.beginPath();
+          ctx.moveTo(Math.random() * 200, Math.random() * 50);
+          ctx.lineTo(Math.random() * 200, Math.random() * 50);
+          ctx.stroke();
+        }
+      }
+      taoCaptcha();
+
+      /* ================= ĐĂNG KÝ ================= */
+      async function dangKy() {
+        let name = document.getElementById("regName").value.trim();
+        let email = document.getElementById("regEmail").value.trim();
+        let pass = document.getElementById("regPass").value.trim();
+        let cap = document.getElementById("regCaptcha").value.trim();
+
+        if (!name || !email || !pass || !cap) {
+          alert("Vui lòng nhập đầy đủ thông tin");
+          return;
+        }
+
+        if (cap !== captchaValue) {
+          alert("Sai mã CAPTCHA");
+          taoCaptcha();
+          return;
+        }
+
+        let res = await fetch("/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, password: pass }),
+        });
+
+        let data = await res.json();
+        alert(data.message);
+
+        if (res.status === 200) {
+          toggle();
+        }
+      }
+
+      /* ================= ĐĂNG NHẬP ================= */
+      async function dangNhap() {
+        let email = document.getElementById("loginEmail").value.trim();
+        let pass = document.getElementById("loginPass").value.trim();
+
+        if (!email || !pass) {
+          alert("Vui lòng nhập đầy đủ thông tin");
+          return;
+        }
+
+        let res = await fetch("/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password: pass }),
+        });
+
+        let data = await res.json();
+        alert(data.message);
+      }
+    </script>
+  </body>
+</html>
