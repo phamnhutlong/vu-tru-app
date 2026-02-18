@@ -8,6 +8,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI;
 
+if (!MONGO_URI) {
+  console.error("❌ MONGO_URI chưa được cấu hình!");
+  process.exit(1);
+}
+
 /* ===== MIDDLEWARE ===== */
 app.use(cors());
 app.use(express.json());
@@ -17,7 +22,10 @@ app.use(express.static(__dirname));
 mongoose
   .connect(MONGO_URI)
   .then(() => console.log("✅ Kết nối MongoDB Atlas thành công"))
-  .catch((err) => console.log("❌ Lỗi MongoDB:", err));
+  .catch((err) => {
+    console.error("❌ Lỗi MongoDB:", err.message);
+    process.exit(1);
+  });
 
 /* ===== ROOT ROUTE ===== */
 app.get("/", (req, res) => {
@@ -25,12 +33,15 @@ app.get("/", (req, res) => {
 });
 
 /* ===== SCHEMA ===== */
-const UserSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  active: { type: Boolean, default: true },
-});
+const UserSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    email: { type: String, required: true, unique: true, lowercase: true },
+    password: { type: String, required: true },
+    active: { type: Boolean, default: true },
+  },
+  { timestamps: true },
+);
 
 const User = mongoose.model("User", UserSchema);
 
@@ -38,6 +49,10 @@ const User = mongoose.model("User", UserSchema);
 app.post("/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Thiếu thông tin" });
+    }
 
     const exist = await User.findOne({ email });
     if (exist) {
@@ -49,6 +64,7 @@ app.post("/register", async (req, res) => {
 
     res.json({ message: "Đăng ký thành công" });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Lỗi server" });
   }
 });
@@ -70,6 +86,7 @@ app.post("/login", async (req, res) => {
 
     res.json({ message: "Đăng nhập thành công" });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Lỗi server" });
   }
 });
@@ -77,9 +94,10 @@ app.post("/login", async (req, res) => {
 /* ===== GET USERS ===== */
 app.get("/users", async (req, res) => {
   try {
-    const users = await User.find({ active: true });
+    const users = await User.find({ active: true }).select("-password");
     res.json(users);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Lỗi server" });
   }
 });
@@ -90,6 +108,7 @@ app.delete("/delete/:id", async (req, res) => {
     await User.findByIdAndUpdate(req.params.id, { active: false });
     res.json({ message: "Đã xóa tài khoản" });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Lỗi server" });
   }
 });
