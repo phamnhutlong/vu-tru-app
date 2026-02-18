@@ -4,64 +4,97 @@ const cors = require("cors");
 
 const app = express();
 
+/* ===== CONFIG ===== */
+const PORT = process.env.PORT || 3000;
+const MONGO_URI = process.env.MONGO_URI;
+
+/* ===== MIDDLEWARE ===== */
 app.use(cors());
 app.use(express.json());
-app.use(express.static(__dirname)); // cho phép mở file html
+app.use(express.static(__dirname));
 
+/* ===== CONNECT MONGODB ===== */
 mongoose
-  .connect("mongodb://127.0.0.1:27017/userDB")
-  .then(() => console.log("Kết nối MongoDB thành công"))
-  .catch((err) => console.log("Lỗi MongoDB:", err));
+  .connect(MONGO_URI)
+  .then(() => console.log("✅ Kết nối MongoDB Atlas thành công"))
+  .catch((err) => console.log("❌ Lỗi MongoDB:", err));
 
+/* ===== ROOT ROUTE ===== */
+app.get("/", (req, res) => {
+  res.send("🚀 Server is running successfully!");
+});
+
+/* ===== SCHEMA ===== */
 const UserSchema = new mongoose.Schema({
-  name: String,
-  email: String,
-  password: String,
+  name: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
   active: { type: Boolean, default: true },
 });
 
 const User = mongoose.model("User", UserSchema);
 
-/* ĐĂNG KÝ */
+/* ===== REGISTER ===== */
 app.post("/register", async (req, res) => {
-  const { name, email, password } = req.body;
+  try {
+    const { name, email, password } = req.body;
 
-  const exist = await User.findOne({ email });
-  if (exist) return res.status(400).json({ message: "Email đã tồn tại" });
+    const exist = await User.findOne({ email });
+    if (exist) {
+      return res.status(400).json({ message: "Email đã tồn tại" });
+    }
 
-  const newUser = new User({ name, email, password });
-  await newUser.save();
+    const newUser = new User({ name, email, password });
+    await newUser.save();
 
-  res.json({ message: "Đăng ký thành công" });
+    res.json({ message: "Đăng ký thành công" });
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi server" });
+  }
 });
 
-/* ĐĂNG NHẬP */
+/* ===== LOGIN ===== */
 app.post("/login", async (req, res) => {
-  const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-  const user = await User.findOne({ email });
+    const user = await User.findOne({ email });
 
-  if (!user) return res.status(400).json({ message: "Sai thông tin" });
-  if (!user.active)
-    return res.status(400).json({ message: "Tài khoản đã bị xóa" });
-  if (user.password !== password)
-    return res.status(400).json({ message: "Sai thông tin" });
+    if (!user || user.password !== password) {
+      return res.status(400).json({ message: "Sai thông tin" });
+    }
 
-  res.json({ message: "Đăng nhập thành công" });
+    if (!user.active) {
+      return res.status(400).json({ message: "Tài khoản đã bị xóa" });
+    }
+
+    res.json({ message: "Đăng nhập thành công" });
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi server" });
+  }
 });
 
-/* LẤY DANH SÁCH */
+/* ===== GET USERS ===== */
 app.get("/users", async (req, res) => {
-  const users = await User.find({ active: true });
-  res.json(users);
+  try {
+    const users = await User.find({ active: true });
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi server" });
+  }
 });
 
-/* XÓA TÀI KHOẢN */
+/* ===== DELETE USER ===== */
 app.delete("/delete/:id", async (req, res) => {
-  await User.findByIdAndUpdate(req.params.id, { active: false });
-  res.json({ message: "Đã xóa tài khoản" });
+  try {
+    await User.findByIdAndUpdate(req.params.id, { active: false });
+    res.json({ message: "Đã xóa tài khoản" });
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi server" });
+  }
 });
 
-app.listen(3000, () => {
-  console.log("Server chạy tại http://localhost:3000");
+/* ===== START SERVER ===== */
+app.listen(PORT, () => {
+  console.log(`🚀 Server chạy trên port ${PORT}`);
 });
